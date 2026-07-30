@@ -1,0 +1,12 @@
+{
+  "name": "清朗天气",
+  "short_name": "天气",
+  "description": "无广告、无资讯流的极简天气网站",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4f8edb",
+  "theme_color": "#4f8edb",
+  "icons": [
+    { "src": "/weather.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
