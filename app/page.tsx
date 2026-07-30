@@ -2,11 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  CalendarDays,
+  Clock3,
   CloudRain,
   Droplets,
   Eye,
   Gauge,
+  List,
   LocateFixed,
+  Map,
   MapPin,
   RefreshCw,
   Search,
@@ -158,12 +162,11 @@ function aqiLabel(value?: number): string {
 
 function hourLabel(value: string, index: number): string {
   if (index === 0) return "现在";
-  return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", hour12: false }).format(new Date(value));
+  return `${new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", hour12: false }).format(new Date(value))}时`;
 }
 
 function dayLabel(value: string, index: number): string {
   if (index === 0) return "今天";
-  if (index === 1) return "明天";
   return new Intl.DateTimeFormat("zh-CN", { weekday: "short" }).format(new Date(`${value}T12:00:00`));
 }
 
@@ -184,6 +187,7 @@ export default function HomePage() {
   const [results, setResults] = useState<Place[]>([]);
   const [searching, setSearching] = useState(false);
   const [recent, setRecent] = useState<Place[]>([defaultPlace]);
+  const [scrolled, setScrolled] = useState(false);
 
   const loadWeather = useCallback(async (target: Place, silent = false) => {
     if (!silent) setLoading(true);
@@ -199,7 +203,7 @@ export default function HomePage() {
       forecastParams.set("hourly", "temperature_2m,precipitation_probability,precipitation,weather_code,relative_humidity_2m,wind_speed_10m");
       forecastParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max");
       forecastParams.set("minutely_15", "precipitation");
-      forecastParams.set("forecast_days", "7");
+      forecastParams.set("forecast_days", "10");
 
       const airParams = new URLSearchParams(common);
       airParams.set("current", "us_aqi,pm2_5,pm10");
@@ -245,6 +249,13 @@ export default function HomePage() {
   }, [loadWeather, place]);
 
   useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 230);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
     const timer = window.setTimeout(async () => {
       if (!query.trim()) {
         setResults([]);
@@ -279,6 +290,7 @@ export default function HomePage() {
     setModalOpen(false);
     setQuery("");
     setResults([]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
     loadWeather(target);
   };
 
@@ -326,13 +338,23 @@ export default function HomePage() {
   const current = weather?.current;
   const today = weather?.daily;
   const theme = themeClass(current?.weather_code, current?.is_day);
+  const aqi = air?.current?.us_aqi;
 
   return (
     <main className={`weather-app ${theme}`}>
+      <div className="sky-texture" />
       <div className="ambient ambient-one" />
       <div className="ambient ambient-two" />
+
+      <div className={`compact-header ${scrolled ? "is-visible" : ""}`}>
+        <button onClick={() => setModalOpen(true)}>
+          <strong>{place.name}</strong>
+          {current && <span>{Math.round(current.temperature_2m)}°　|　{weatherText(current.weather_code)}</span>}
+        </button>
+      </div>
+
       <div className="shell">
-        <header className="topbar">
+        <header className="topbar desktop-topbar">
           <div className="brand"><span className="brand-dot" />清朗天气</div>
           <div className="top-actions">
             <button className="round-button" onClick={locate} aria-label="定位"><LocateFixed size={20} /></button>
@@ -344,53 +366,76 @@ export default function HomePage() {
 
         <section className="hero">
           <button className="city-button" onClick={() => setModalOpen(true)}>
-            <span className="location-line"><MapPin size={14} />点击切换城市</span>
             <span className="city-name">{place.name}</span>
-            <span className="place-detail">{[place.admin1, place.country].filter(Boolean).join(" · ")}</span>
+            <span className="place-detail"><MapPin size={13} />{[place.admin1, place.country].filter(Boolean).join(" · ") || "点击切换城市"}</span>
           </button>
+
           {loading && !current ? (
             <div className="loading">正在获取天气…</div>
           ) : current ? (
             <>
-              <div className="hero-weather-icon">{weatherEmoji(current.weather_code, Boolean(current.is_day))}</div>
               <div className="temperature">{Math.round(current.temperature_2m)}<sup>°</sup></div>
+              <div className="high-low-row">
+                <span><small>最高</small><strong>{Math.round(today?.temperature_2m_max[0] ?? current.temperature_2m)}°</strong></span>
+                <span><small>最低</small><strong>{Math.round(today?.temperature_2m_min[0] ?? current.temperature_2m)}°</strong></span>
+              </div>
               <div className="condition">{weatherText(current.weather_code)}</div>
-              <div className="range">最高 {Math.round(today?.temperature_2m_max[0] ?? current.temperature_2m)}°　最低 {Math.round(today?.temperature_2m_min[0] ?? current.temperature_2m)}°</div>
             </>
           ) : null}
         </section>
 
         {weather && current && (
-          <div className="content-grid">
-            <section className="glass-card hourly-card wide-card">
-              <div className="card-title"><span>逐小时预报</span><span>未来24小时</span></div>
+          <div className="content-stack">
+            <section className="glass-card air-card apple-card">
+              <div className="aqi-heading">{aqi != null ? `${Math.round(aqi)} - ${aqiLabel(aqi)}` : "空气质量暂无"}</div>
+              <div className="aqi-scale"><i style={{ left: `${Math.min(98, Math.max(1, (aqi ?? 0) / 2.5))}%` }} /></div>
+              <div className="aqi-description">当前 AQI（US）为 {aqi != null ? Math.round(aqi) : "—"}。</div>
+            </section>
+
+            <section className="glass-card hourly-card apple-card">
+              <div className="hourly-summary">
+                今天将持续{weatherText(weather.daily.weather_code[0])}。最高 {Math.round(weather.daily.temperature_2m_max[0])}°，最低 {Math.round(weather.daily.temperature_2m_min[0])}°。
+              </div>
+              <div className="section-label"><Clock3 size={16} />每小时天气预报</div>
               <div className="hourly-scroll">
-                {hours.map((hour, index) => (
-                  <div className="hour-item" key={hour.time}>
-                    <span className="hour-time">{hourLabel(hour.time, index)}</span>
-                    <span className="hour-pop">{hour.pop > 0 ? `${hour.pop}%` : ""}</span>
-                    <span className="hour-icon">{weatherEmoji(hour.code, true)}</span>
-                    <strong>{Math.round(hour.temp)}°</strong>
-                  </div>
-                ))}
+                {hours.map((hour, index) => {
+                  const hourOfDay = new Date(hour.time).getHours();
+                  const isDay = hourOfDay >= 7 && hourOfDay < 19;
+                  return (
+                    <div className="hour-item" key={hour.time}>
+                      <span className="hour-time">{hourLabel(hour.time, index)}</span>
+                      <span className="hour-pop">{hour.pop > 0 ? `${hour.pop}%` : ""}</span>
+                      <span className="hour-icon">{weatherEmoji(hour.code, isDay)}</span>
+                      <strong>{Math.round(hour.temp)}°</strong>
+                    </div>
+                  );
+                })}
               </div>
             </section>
 
-            <section className="glass-card daily-card wide-card">
-              <div className="card-title"><span>7日天气预报</span></div>
+            <section className="glass-card daily-card apple-card">
+              <div className="section-label"><CalendarDays size={16} />10日天气预报</div>
               <div className="daily-list">
                 {weather.daily.time.map((date, index) => {
                   const min = Math.min(...weather.daily.temperature_2m_min);
                   const max = Math.max(...weather.daily.temperature_2m_max);
                   const left = ((weather.daily.temperature_2m_min[index] - min) / Math.max(1, max - min)) * 35;
                   const width = Math.max(18, ((weather.daily.temperature_2m_max[index] - weather.daily.temperature_2m_min[index]) / Math.max(1, max - min)) * 65);
+                  const currentPosition = index === 0
+                    ? ((current.temperature_2m - min) / Math.max(1, max - min)) * 100
+                    : null;
                   return (
                     <div className="daily-row" key={date}>
                       <span className="day-name">{dayLabel(date, index)}</span>
-                      <span className="day-pop">{weather.daily.precipitation_probability_max[index] > 0 ? `${weather.daily.precipitation_probability_max[index]}%` : ""}</span>
-                      <span className="day-icon">{weatherEmoji(weather.daily.weather_code[index])}</span>
+                      <span className="day-weather">
+                        <span className="day-icon">{weatherEmoji(weather.daily.weather_code[index])}</span>
+                        {weather.daily.precipitation_probability_max[index] > 0 && <small>{weather.daily.precipitation_probability_max[index]}%</small>}
+                      </span>
                       <span className="day-min">{Math.round(weather.daily.temperature_2m_min[index])}°</span>
-                      <span className="temp-track"><i style={{ left: `${left}%`, width: `${width}%` }} /></span>
+                      <span className="temp-track">
+                        <i style={{ left: `${left}%`, width: `${width}%` }} />
+                        {currentPosition != null && <b style={{ left: `${Math.min(98, Math.max(2, currentPosition))}%` }} />}
+                      </span>
                       <span className="day-max">{Math.round(weather.daily.temperature_2m_max[index])}°</span>
                     </div>
                   );
@@ -398,42 +443,43 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section className="glass-card rain-card">
-              <div className="card-title"><span><CloudRain size={16} />未来两小时降水</span><span>15分钟间隔</span></div>
-              <div className="rain-chart">
-                {rainPoints.length ? rainPoints.map((point) => (
-                  <div className="rain-column" key={point.time}>
-                    <div className="rain-bar-wrap"><i style={{ height: `${Math.max(3, point.value / rainMax * 100)}%` }} /></div>
-                    <span>{new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(point.time))}</span>
-                  </div>
-                )) : <div className="empty-state">暂无15分钟降水数据</div>}
-              </div>
-              <div className="rain-summary">{rainPoints.some((item) => item.value > 0.05) ? "未来两小时可能有降水" : "未来两小时降水概率较低"}</div>
-            </section>
+            <div className="secondary-grid">
+              <section className="glass-card rain-card apple-card">
+                <div className="section-label"><CloudRain size={16} />未来两小时降水</div>
+                <div className="rain-chart">
+                  {rainPoints.length ? rainPoints.map((point) => (
+                    <div className="rain-column" key={point.time}>
+                      <div className="rain-bar-wrap"><i style={{ height: `${Math.max(3, point.value / rainMax * 100)}%` }} /></div>
+                      <span>{new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(point.time))}</span>
+                    </div>
+                  )) : <div className="empty-state">暂无15分钟降水数据</div>}
+                </div>
+                <div className="rain-summary">{rainPoints.some((item) => item.value > 0.05) ? "未来两小时可能有降水" : "未来两小时降水概率较低"}</div>
+              </section>
 
-            <section className="glass-card air-card">
-              <div className="card-title"><span>空气质量</span><span>US AQI</span></div>
-              <div className="aqi-value">{air?.current?.us_aqi != null ? Math.round(air.current.us_aqi) : "—"}</div>
-              <div className="aqi-label">{aqiLabel(air?.current?.us_aqi)}</div>
-              <div className="aqi-scale"><i style={{ width: `${Math.min(100, (air?.current?.us_aqi ?? 0) / 2.5)}%` }} /></div>
-              <div className="pollutants"><span>PM2.5　{air?.current?.pm2_5?.toFixed(1) ?? "—"}</span><span>PM10　{air?.current?.pm10?.toFixed(1) ?? "—"}</span></div>
-            </section>
-
-            <section className="metrics-grid wide-card">
-              <div className="glass-card metric"><Droplets /><span>湿度</span><strong>{current.relative_humidity_2m}%</strong><small>当前相对湿度</small></div>
-              <div className="glass-card metric"><Wind /><span>风速</span><strong>{Math.round(current.wind_speed_10m)} km/h</strong><small>{windDirection(current.wind_direction_10m)}风</small></div>
-              <div className="glass-card metric"><Eye /><span>能见度</span><strong>{(current.visibility / 1000).toFixed(1)} km</strong><small>地面能见度</small></div>
-              <div className="glass-card metric"><Gauge /><span>气压</span><strong>{Math.round(current.surface_pressure)} hPa</strong><small>地面气压</small></div>
-            </section>
+              <section className="metrics-grid">
+                <div className="glass-card metric apple-card"><Droplets /><span>湿度</span><strong>{current.relative_humidity_2m}%</strong><small>当前相对湿度</small></div>
+                <div className="glass-card metric apple-card"><Wind /><span>风速</span><strong>{Math.round(current.wind_speed_10m)} km/h</strong><small>{windDirection(current.wind_direction_10m)}风</small></div>
+                <div className="glass-card metric apple-card"><Eye /><span>能见度</span><strong>{(current.visibility / 1000).toFixed(1)} km</strong><small>地面能见度</small></div>
+                <div className="glass-card metric apple-card"><Gauge /><span>气压</span><strong>{Math.round(current.surface_pressure)} hPa</strong><small>地面气压</small></div>
+              </section>
+            </div>
           </div>
         )}
 
         <footer>天气与空气质量数据来自 Open-Meteo · 每10分钟自动更新</footer>
       </div>
 
+      <nav className="mobile-dock" aria-label="天气导航">
+        <button onClick={locate} aria-label="定位当前位置"><Map size={27} /></button>
+        <div className="page-indicator"><span /><span /><span /><span className="active" /><span /></div>
+        <button onClick={() => setModalOpen(true)} aria-label="选择城市"><List size={28} /></button>
+      </nav>
+
       {modalOpen && (
         <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setModalOpen(false); }}>
           <section className="city-modal">
+            <div className="modal-handle" />
             <div className="modal-head"><h2>选择城市</h2><button onClick={() => setModalOpen(false)}><X size={21} /></button></div>
             <label className="search-box"><Search size={18} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索城市，例如合肥、泉州" /><button onClick={locate}><LocateFixed size={18} /></button></label>
             {query ? (
