@@ -1,79 +1,62 @@
-# 清朗天气 · Open-Meteo 版
+# 清朗天气 · GitHub Pages 静态版
 
-一个无广告、无资讯流、无需 API Key 的极简天气网站。视觉采用类似系统天气应用的沉浸式渐变、毛玻璃卡片和大字号信息层级，但不复制 Apple 的图标或素材。
+苹果天气风格的无广告天气网站。网站代码由 GitHub Pages 静态托管，天气数据由浏览器直接请求 Open-Meteo，因此不需要服务器、数据库或 API Key。
 
-## 已完成
+## 功能
 
-- 当前天气与体感温度
+- 搜索并切换全球城市
+- 热门城市与最近城市
 - 浏览器定位
-- 点击城市名直接打开城市选择器
-- 中文城市联想搜索、热门城市快捷选择
-- 自动保存最近选择的 8 个城市，并记住上次打开的城市
-- 未来 24 小时预报
-- 未来 7 日预报与温度区间
-- 未来 2 小时降水趋势（15 分钟间隔）
-- 空气质量（US AQI、PM2.5、PM10）
-- 根据晴、云、雨、雪、雾和昼夜自动改变背景
-- 手机、平板、电脑响应式布局
-- PWA Manifest，可添加到手机桌面
-- 服务端代理与缓存
-- 无需注册、无需 API Key、无需数据库
-
-## 数据来源
-
-- 天气预报与城市地理搜索：Open-Meteo
-- 空气质量：Open-Meteo Air Quality API，底层数据来自 CAMS
-
-Open-Meteo 在中国等没有原生 15 分钟模型覆盖的区域，会将小时数据插值为 15 分钟数据。因此页面将其标注为“降水趋势”，不将其描述为雷达分钟级临近预报。
-
-Open-Meteo 本身不提供中国官方灾害预警，所以此版本不展示天气预警。遇到台风、暴雨、强对流等高影响天气，应以中央气象台和当地气象部门发布的信息为准。
+- 当前天气、24 小时预报、7 日预报
+- 未来两小时 15 分钟降水
+- 空气质量
+- 每 10 分钟自动刷新
+- 从后台重新切回页面时自动刷新
+- 响应式设计与 PWA 配置
 
 ## 本地运行
-
-需要 Node.js 22。
 
 ```bash
 npm install
 npm run dev
 ```
 
-打开：
+打开 `http://localhost:3000`。
 
-```text
-http://localhost:3000
+## 本地检查静态构建
+
+```bash
+npm run typecheck
+npm run build
 ```
 
-无需创建 `.env.local`，运行后直接获取真实天气。
+静态文件会生成在 `out` 文件夹。
 
-## 修改默认城市
+## 部署到 GitHub Pages
 
-默认城市是合肥。需要修改时，复制 `.env.example` 为 `.env.local`：
+项目已经包含 `.github/workflows/deploy-pages.yml`，推送到 `main` 分支后会自动构建和部署。
 
-```env
-NEXT_PUBLIC_DEFAULT_LOCATION=117.23,31.82
-NEXT_PUBLIC_DEFAULT_LOCATION_NAME=合肥
-```
+1. 将本项目文件覆盖上传到 GitHub 仓库根目录。
+2. 仓库为 GitHub Free 私有仓库时，请先改成 Public；或者使用支持私有仓库 Pages 的付费方案。
+3. 打开仓库 `Settings → Pages`。
+4. 在 `Build and deployment → Source` 中选择 `GitHub Actions`。
+5. 打开 `Actions` 标签，等待 `Deploy GitHub Pages` 变为绿色。
+6. 网站地址通常是：`https://用户名.github.io/仓库名/`。
 
-坐标格式为“经度,纬度”。修改后重启开发服务器。
+`next.config.mjs` 会在 GitHub Actions 中自动读取仓库名并设置子路径，因此仓库不叫 `clean-weather` 也能部署。
 
-## 部署到 EdgeOne Makers
+## 数据更新方式
 
-1. 将项目上传到 GitHub 仓库。
-2. 在 EdgeOne Makers 中导入 Git 仓库。
-3. 框架选择 Next.js，Node.js 选择 22。
-4. 直接部署，无需配置天气 API 环境变量。
-5. 如需更换默认城市，再添加上面的两个可选环境变量。
+“静态”只表示网站文件由 GitHub Pages 托管。天气数据不是写死的：
 
-## API 路由
+- 打开页面时实时请求 Open-Meteo；
+- 切换城市后立即重新请求；
+- 页面打开期间每 10 分钟更新；
+- 从后台切回页面时更新。
 
-网站通过自身服务端调用：
+## 数据来源
 
-- `https://api.open-meteo.com/v1/forecast`
-- `https://geocoding-api.open-meteo.com/v1/search`
-- `https://air-quality-api.open-meteo.com/v1/air-quality`
+- 天气：Open-Meteo
+- 空气质量：Open-Meteo / CAMS
 
-浏览器只访问本站的 `/api/weather` 与 `/api/search`，便于统一缓存和错误处理。
-
-## 使用边界
-
-该项目默认按个人、学习和非商业用途设计。商业部署前，请自行核对 Open-Meteo 当时的授权条款与套餐要求。
+请保留页面底部的数据来源标注。

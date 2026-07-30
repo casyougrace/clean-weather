@@ -1,11 +1,15 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const repositoryName = process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "";
+const isProjectPage = process.env.GITHUB_ACTIONS === "true" && repositoryName && !repositoryName.endsWith(".github.io");
+const basePath = isProjectPage ? `/${repositoryName}` : "";
+
 export const metadata: Metadata = {
   title: "清朗天气",
   description: "无广告、无资讯流的极简天气网站",
-  manifest: "/manifest.webmanifest",
-  icons: { icon: "/weather.svg", apple: "/weather.svg" }
+  manifest: `${basePath}/manifest.webmanifest`,
+  icons: { icon: `${basePath}/weather.svg`, apple: `${basePath}/weather.svg` }
 };
 
 export const viewport: Viewport = {
